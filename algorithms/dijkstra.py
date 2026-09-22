@@ -8,7 +8,7 @@ def build_graph(data, mode="distance"):
 
     Modes:
     distance   = shortest physical distance
-    fastest    = shortest travel time
+    fastest    = shortest travel time considering traffic
     accessible = shortest distance using accessible roads only
     """
 
@@ -20,6 +20,13 @@ def build_graph(data, mode="distance"):
 
     graph = {}
 
+    # Traffic multipliers
+    traffic_multiplier = {
+        "LOW": 1.0,
+        "MEDIUM": 1.5,
+        "HIGH": 2.5
+    }
+
     for _, row in df.iterrows():
 
         source = str(row["source"])
@@ -30,8 +37,9 @@ def build_graph(data, mode="distance"):
 
         speed = float(row["speed_kmh"])
         accessible = str(row["accessible"]).upper()
+        traffic = str(row["traffic"]).upper()
 
-        # Make sure both locations exist
+        # Add locations to graph
         graph.setdefault(source, [])
         graph.setdefault(destination, [])
 
@@ -43,25 +51,34 @@ def build_graph(data, mode="distance"):
         if mode == "accessible" and accessible != "YES":
             continue
 
-        # Calculate the weight used by Dijkstra
+        # -----------------------------
+        # Calculate edge weight
+        # -----------------------------
         if mode == "fastest":
 
-            # metres -> kilometres
+            # Distance in kilometres
             distance_km = distance / 1000
 
-            # travel time in hours
+            # Base travel time in hours
             travel_time_hours = distance_km / speed
 
-            # convert hours -> minutes
+            # Traffic effect
+            multiplier = traffic_multiplier.get(
+                traffic,
+                1.0
+            )
+
+            travel_time_hours *= multiplier
+
+            # Convert hours to minutes
             weight = travel_time_hours * 60
 
         else:
 
-            # distance and accessible modes
+            # Distance and accessible modes
             weight = distance
 
-        # Add both directions because campus roads
-        # are currently treated as bidirectional
+        # Add both directions
         graph[source].append(
             (destination, weight)
         )
@@ -100,7 +117,7 @@ def dijkstra(graph, start, end):
             priority_queue
         )
 
-        # Ignore outdated queue entries
+        # Ignore outdated entries
         if current_distance > distances[current_node]:
             continue
 
@@ -126,7 +143,7 @@ def dijkstra(graph, start, end):
                     (new_distance, neighbor)
                 )
 
-    # No path exists
+    # No route exists
     if distances[end] == float("inf"):
         return [], float("inf")
 
