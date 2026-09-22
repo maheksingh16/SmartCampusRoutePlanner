@@ -150,8 +150,7 @@ for _, row in edited_df.iterrows():
 
         dot += (
             f'"{source}" -- "{destination}" '
-            f'[label="{distance} m", '
-            'color="gray"];\n'
+            f'[label="{distance} m", color="gray"];\n'
         )
 
     else:
@@ -159,9 +158,7 @@ for _, row in edited_df.iterrows():
         dot += (
             f'"{source}" -- "{destination}" '
             f'[label="{distance} m - BLOCKED", '
-            'color="red", '
-            'style="dashed", '
-            'fontcolor="red"];\n'
+            'color="red", style="dashed", fontcolor="red"];\n'
         )
 
 
@@ -184,12 +181,10 @@ route_mode = st.selectbox(
     ]
 )
 
-
 start = st.selectbox(
     "Start Location",
     locations
 )
-
 
 destination = st.selectbox(
     "Destination",
@@ -202,7 +197,9 @@ destination = st.selectbox(
 # -----------------------------
 if st.button("🔍 Find Route"):
 
-    # Convert UI selection to algorithm mode
+    # -----------------------------
+    # Convert route mode
+    # -----------------------------
     if route_mode == "Shortest Distance":
 
         mode = "distance"
@@ -217,15 +214,6 @@ if st.button("🔍 Find Route"):
 
 
     # -----------------------------
-    # Build graph
-    # -----------------------------
-    graph = build_graph(
-        edited_df,
-        mode=mode
-    )
-
-
-    # -----------------------------
     # Validate locations
     # -----------------------------
     if start == destination:
@@ -237,7 +225,15 @@ if st.button("🔍 Find Route"):
     else:
 
         # -----------------------------
-        # Run Dijkstra
+        # Build current graph
+        # -----------------------------
+        graph = build_graph(
+            edited_df,
+            mode=mode
+        )
+
+        # -----------------------------
+        # Find current route
         # -----------------------------
         path, weight = dijkstra(
             graph,
@@ -299,10 +295,12 @@ if st.button("🔍 Find Route"):
             total_distance = 0.0
             total_time = 0.0
 
+
             for i in range(len(path) - 1):
 
                 current = path[i]
                 next_location = path[i + 1]
+
 
                 for _, row in edited_df.iterrows():
 
@@ -320,6 +318,7 @@ if st.button("🔍 Find Route"):
                             )
                     )
 
+
                     if is_same_road:
 
                         segment_distance = float(
@@ -335,6 +334,7 @@ if st.button("🔍 Find Route"):
                                                / speed
                                        ) * 60
 
+
                         total_distance += (
                             segment_distance
                         )
@@ -347,11 +347,110 @@ if st.button("🔍 Find Route"):
 
 
             # -----------------------------
+            # Count blocked roads
+            # -----------------------------
+            blocked_count = int(
+                (
+                        edited_df["status"]
+                        .astype(str)
+                        .str.upper()
+                        == "BLOCKED"
+                ).sum()
+            )
+
+
+            # -----------------------------
+            # Alternative Route Detection
+            # -----------------------------
+            baseline_df = edited_df.copy()
+
+            # Temporarily make all roads OPEN
+            baseline_df["status"] = "OPEN"
+
+
+            baseline_graph = build_graph(
+                baseline_df,
+                mode=mode
+            )
+
+
+            baseline_path, baseline_weight = dijkstra(
+                baseline_graph,
+                start,
+                destination
+            )
+
+
+            # -----------------------------
+            # Detect route change
+            # -----------------------------
+            route_changed = (
+                    baseline_path
+                    and
+                    baseline_path != path
+            )
+
+
+            if route_changed:
+
+                st.warning(
+                    "🚧 The preferred route is unavailable. "
+                    "An alternative route has been selected."
+                )
+
+
+                st.write(
+                    "**Normal route:** "
+                    + " → ".join(baseline_path)
+                )
+
+
+                st.write(
+                    "**Current route:** "
+                    + " → ".join(path)
+                )
+
+
+                if mode == "fastest":
+
+                    extra_time = (
+                            total_time - baseline_weight
+                    )
+
+                    st.info(
+                        f"⏱️ Additional travel time: "
+                        f"{extra_time:.2f} minutes"
+                    )
+
+                else:
+
+                    extra_distance = (
+                            total_distance - baseline_weight
+                    )
+
+                    st.info(
+                        f"📏 Additional distance: "
+                        f"{extra_distance:.0f} metres"
+                    )
+
+
+            elif blocked_count > 0:
+
+                st.info(
+                    f"🚧 {blocked_count} blocked road(s) "
+                    "are present in the campus network. "
+                    "The selected route was not affected."
+                )
+
+
+            # -----------------------------
             # Route Summary Dashboard
             # -----------------------------
             st.subheader("📊 Route Summary")
 
+
             col1, col2, col3, col4 = st.columns(4)
+
 
             with col1:
 
@@ -360,6 +459,7 @@ if st.button("🔍 Find Route"):
                     len(path)
                 )
 
+
             with col2:
 
                 st.metric(
@@ -367,12 +467,14 @@ if st.button("🔍 Find Route"):
                     f"{total_distance:.0f} m"
                 )
 
+
             with col3:
 
                 st.metric(
                     "⏱️ Travel Time",
                     f"{total_time:.2f} min"
                 )
+
 
             with col4:
 
@@ -383,11 +485,13 @@ if st.button("🔍 Find Route"):
 
 
             # -----------------------------
-            # Highlight Selected Route
+            # Selected Route Map
             # -----------------------------
             st.subheader("🗺️ Selected Route")
 
+
             route_edges = set()
+
 
             for i in range(len(path) - 1):
 
@@ -453,6 +557,7 @@ graph Campus {
                 destination_name = row["destination"]
                 distance_value = row["distance"]
                 status = str(row["status"]).upper()
+
 
                 edge = tuple(
                     sorted(
@@ -539,10 +644,12 @@ graph Campus {
             # -----------------------------
             st.subheader("📋 Route Details")
 
+
             for i in range(len(path) - 1):
 
                 current = path[i]
                 next_location = path[i + 1]
+
 
                 for _, row in edited_df.iterrows():
 
@@ -560,6 +667,7 @@ graph Campus {
                             )
                     )
 
+
                     if is_same_road:
 
                         segment_distance = float(
@@ -574,6 +682,7 @@ graph Campus {
                                                (segment_distance / 1000)
                                                / speed
                                        ) * 60
+
 
                         if route_mode == "Fastest Route":
 
@@ -597,6 +706,7 @@ graph Campus {
             # Final Result
             # -----------------------------
             st.divider()
+
 
             if route_mode == "Fastest Route":
 
