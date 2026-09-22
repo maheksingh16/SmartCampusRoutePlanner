@@ -1,0 +1,8 @@
+streamlit
+pandas
+pydeck
+requests
+fastapi
+uvicorn
+sqlalchemy
+psycopg[binary]
