@@ -1,0 +1,11 @@
+source,destination,distance,status
+Main Gate,Admin Block,200,OPEN
+Main Gate,Library,300,OPEN
+Admin Block,Library,100,OPEN
+Admin Block,CSE Department,250,BLOCKED
+Library,CSE Department,150,OPEN
+Library,Canteen,200,OPEN
+CSE Department,Computer Lab,100,OPEN
+CSE Department,Auditorium,300,OPEN
+Canteen,Auditorium,150,OPEN
+Computer Lab,Auditorium,200,OPEN
