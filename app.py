@@ -175,7 +175,6 @@ st.graphviz_chart(dot)
 # -----------------------------
 st.subheader("📍 Choose Your Route")
 
-
 route_mode = st.selectbox(
     "🧭 Route Mode",
     [
@@ -218,7 +217,7 @@ if st.button("🔍 Find Route"):
 
 
     # -----------------------------
-    # Build graph according to mode
+    # Build graph
     # -----------------------------
     graph = build_graph(
         edited_df,
@@ -227,7 +226,7 @@ if st.button("🔍 Find Route"):
 
 
     # -----------------------------
-    # Validate start/end
+    # Validate locations
     # -----------------------------
     if start == destination:
 
@@ -272,6 +271,9 @@ if st.button("🔍 Find Route"):
         # -----------------------------
         else:
 
+            # -----------------------------
+            # Success message
+            # -----------------------------
             if route_mode == "Shortest Distance":
 
                 st.success(
@@ -292,13 +294,100 @@ if st.button("🔍 Find Route"):
 
 
             # -----------------------------
-            # Selected Route
+            # Calculate Route Statistics
+            # -----------------------------
+            total_distance = 0.0
+            total_time = 0.0
+
+            for i in range(len(path) - 1):
+
+                current = path[i]
+                next_location = path[i + 1]
+
+                for _, row in edited_df.iterrows():
+
+                    is_same_road = (
+                            (
+                                    row["source"] == current
+                                    and
+                                    row["destination"] == next_location
+                            )
+                            or
+                            (
+                                    row["source"] == next_location
+                                    and
+                                    row["destination"] == current
+                            )
+                    )
+
+                    if is_same_road:
+
+                        segment_distance = float(
+                            row["distance"]
+                        )
+
+                        speed = float(
+                            row["speed_kmh"]
+                        )
+
+                        segment_time = (
+                                               (segment_distance / 1000)
+                                               / speed
+                                       ) * 60
+
+                        total_distance += (
+                            segment_distance
+                        )
+
+                        total_time += (
+                            segment_time
+                        )
+
+                        break
+
+
+            # -----------------------------
+            # Route Summary Dashboard
+            # -----------------------------
+            st.subheader("📊 Route Summary")
+
+            col1, col2, col3, col4 = st.columns(4)
+
+            with col1:
+
+                st.metric(
+                    "📍 Stops",
+                    len(path)
+                )
+
+            with col2:
+
+                st.metric(
+                    "📏 Distance",
+                    f"{total_distance:.0f} m"
+                )
+
+            with col3:
+
+                st.metric(
+                    "⏱️ Travel Time",
+                    f"{total_time:.2f} min"
+                )
+
+            with col4:
+
+                st.metric(
+                    "🧭 Mode",
+                    route_mode
+                )
+
+
+            # -----------------------------
+            # Highlight Selected Route
             # -----------------------------
             st.subheader("🗺️ Selected Route")
 
-
             route_edges = set()
-
 
             for i in range(len(path) - 1):
 
@@ -330,7 +419,7 @@ graph Campus {
 
 
             # -----------------------------
-            # Add nodes
+            # Add Nodes
             # -----------------------------
             for location in locations:
 
@@ -356,7 +445,7 @@ graph Campus {
 
 
             # -----------------------------
-            # Add roads
+            # Add Roads
             # -----------------------------
             for _, row in edited_df.iterrows():
 
@@ -450,16 +539,10 @@ graph Campus {
             # -----------------------------
             st.subheader("📋 Route Details")
 
-
-            total_distance = 0.0
-            total_time = 0.0
-
-
             for i in range(len(path) - 1):
 
                 current = path[i]
                 next_location = path[i + 1]
-
 
                 for _, row in edited_df.iterrows():
 
@@ -477,7 +560,6 @@ graph Campus {
                             )
                     )
 
-
                     if is_same_road:
 
                         segment_distance = float(
@@ -492,14 +574,6 @@ graph Campus {
                                                (segment_distance / 1000)
                                                / speed
                                        ) * 60
-
-
-                        total_distance += (
-                            segment_distance
-                        )
-
-                        total_time += segment_time
-
 
                         if route_mode == "Fastest Route":
 
@@ -520,10 +594,9 @@ graph Campus {
 
 
             # -----------------------------
-            # Result Summary
+            # Final Result
             # -----------------------------
             st.divider()
-
 
             if route_mode == "Fastest Route":
 
@@ -536,7 +609,6 @@ graph Campus {
                     f"Total route distance: "
                     f"**{total_distance:.0f} metres**"
                 )
-
 
             else:
 
