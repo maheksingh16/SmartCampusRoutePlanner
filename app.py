@@ -28,8 +28,8 @@ df = pd.read_csv(DATA_FILE)
 st.title("🗺️ Smart Campus Route Planner")
 
 st.write(
-    "Find the shortest route between two campus locations "
-    "while avoiding blocked roads."
+    "Find the best available campus route based on "
+    "distance, travel time, or accessibility."
 )
 
 
@@ -46,21 +46,41 @@ st.write(
 edited_df = st.data_editor(
     df,
     hide_index=True,
-    use_container_width=True,
+    width="stretch",
     column_config={
         "source": "Source",
+
         "destination": "Destination",
+
         "distance": st.column_config.NumberColumn(
             "Distance (m)",
             min_value=0
         ),
+
         "status": st.column_config.SelectboxColumn(
             "Status",
             options=["OPEN", "BLOCKED"],
             required=True
+        ),
+
+        "speed_kmh": st.column_config.NumberColumn(
+            "Speed (km/h)",
+            min_value=0.1
+        ),
+
+        "accessible": st.column_config.SelectboxColumn(
+            "Accessible",
+            options=["YES", "NO"],
+            required=True
         )
     },
-    disabled=["source", "destination", "distance"],
+    disabled=[
+        "source",
+        "destination",
+        "distance",
+        "speed_kmh",
+        "accessible"
+    ],
     key="road_status_editor"
 )
 
@@ -78,12 +98,6 @@ if st.button("💾 Save Road Status"):
     st.success(
         "Road status saved successfully!"
     )
-
-
-# -----------------------------
-# Build graph from edited data
-# -----------------------------
-graph = build_graph(edited_df)
 
 
 # -----------------------------
@@ -120,6 +134,7 @@ graph Campus {
 
 # Add nodes
 for location in locations:
+
     dot += f'"{location}";\n'
 
 
@@ -149,6 +164,7 @@ for _, row in edited_df.iterrows():
             'fontcolor="red"];\n'
         )
 
+
 dot += "}"
 
 st.graphviz_chart(dot)
@@ -159,10 +175,22 @@ st.graphviz_chart(dot)
 # -----------------------------
 st.subheader("📍 Choose Your Route")
 
+
+route_mode = st.selectbox(
+    "🧭 Route Mode",
+    [
+        "Shortest Distance",
+        "Fastest Route",
+        "Accessible Route"
+    ]
+)
+
+
 start = st.selectbox(
     "Start Location",
     locations
 )
+
 
 destination = st.selectbox(
     "Destination",
@@ -171,10 +199,36 @@ destination = st.selectbox(
 
 
 # -----------------------------
-# Find Shortest Route
+# Find Route
 # -----------------------------
-if st.button("🔍 Find Shortest Route"):
+if st.button("🔍 Find Route"):
 
+    # Convert UI selection to algorithm mode
+    if route_mode == "Shortest Distance":
+
+        mode = "distance"
+
+    elif route_mode == "Fastest Route":
+
+        mode = "fastest"
+
+    else:
+
+        mode = "accessible"
+
+
+    # -----------------------------
+    # Build graph according to mode
+    # -----------------------------
+    graph = build_graph(
+        edited_df,
+        mode=mode
+    )
+
+
+    # -----------------------------
+    # Validate start/end
+    # -----------------------------
     if start == destination:
 
         st.warning(
@@ -183,38 +237,68 @@ if st.button("🔍 Find Shortest Route"):
 
     else:
 
-        path, distance = dijkstra(
+        # -----------------------------
+        # Run Dijkstra
+        # -----------------------------
+        path, weight = dijkstra(
             graph,
             start,
             destination
         )
+
 
         # -----------------------------
         # No route
         # -----------------------------
         if not path:
 
-            st.error(
-                "No available route exists between "
-                "these locations."
-            )
+            if route_mode == "Accessible Route":
+
+                st.error(
+                    "No accessible route is available "
+                    "between these locations."
+                )
+
+            else:
+
+                st.error(
+                    "No available route exists between "
+                    "these locations."
+                )
+
 
         # -----------------------------
         # Route found
         # -----------------------------
         else:
 
-            st.success(
-                "Shortest available route found!"
-            )
+            if route_mode == "Shortest Distance":
+
+                st.success(
+                    "Shortest distance route found!"
+                )
+
+            elif route_mode == "Fastest Route":
+
+                st.success(
+                    "Fastest available route found!"
+                )
+
+            else:
+
+                st.success(
+                    "Accessible route found!"
+                )
 
 
             # -----------------------------
-            # Highlight Selected Route
+            # Selected Route
             # -----------------------------
             st.subheader("🗺️ Selected Route")
 
+
             route_edges = set()
+
 
             for i in range(len(path) - 1):
 
@@ -245,7 +329,9 @@ graph Campus {
 """
 
 
+            # -----------------------------
             # Add nodes
+            # -----------------------------
             for location in locations:
 
                 if location == start:
@@ -269,7 +355,9 @@ graph Campus {
                     )
 
 
+            # -----------------------------
             # Add roads
+            # -----------------------------
             for _, row in edited_df.iterrows():
 
                 source = row["source"]
@@ -283,7 +371,8 @@ graph Campus {
                     )
                 )
 
-                # Highlight selected route
+
+                # Selected route
                 if edge in route_edges:
 
                     highlighted_dot += (
@@ -294,6 +383,7 @@ graph Campus {
                         'penwidth=4, '
                         'fontcolor="red"];\n'
                     )
+
 
                 # Blocked road
                 elif status == "BLOCKED":
@@ -307,6 +397,7 @@ graph Campus {
                         'fontcolor="red"];\n'
                     )
 
+
                 # Normal road
                 else:
 
@@ -319,15 +410,19 @@ graph Campus {
 
             highlighted_dot += "}"
 
+
             st.graphviz_chart(
                 highlighted_dot
             )
 
 
             # -----------------------------
-            # Shortest Route
+            # Route Steps
             # -----------------------------
-            st.subheader("🚶 Shortest Route")
+            st.subheader(
+                f"🚶 {route_mode}"
+            )
+
 
             for i, location in enumerate(path):
 
@@ -355,14 +450,20 @@ graph Campus {
             # -----------------------------
             st.subheader("📋 Route Details")
 
+
+            total_distance = 0.0
+            total_time = 0.0
+
+
             for i in range(len(path) - 1):
 
                 current = path[i]
                 next_location = path[i + 1]
 
+
                 for _, row in edited_df.iterrows():
 
-                    if (
+                    is_same_road = (
                             (
                                     row["source"] == current
                                     and
@@ -374,24 +475,72 @@ graph Campus {
                                     and
                                     row["destination"] == current
                             )
-                    ):
+                    )
 
-                        segment_distance = row["distance"]
 
-                        st.write(
-                            f"**{current} → {next_location}** "
-                            f"— {segment_distance} m"
+                    if is_same_road:
+
+                        segment_distance = float(
+                            row["distance"]
                         )
+
+                        speed = float(
+                            row["speed_kmh"]
+                        )
+
+                        segment_time = (
+                                               (segment_distance / 1000)
+                                               / speed
+                                       ) * 60
+
+
+                        total_distance += (
+                            segment_distance
+                        )
+
+                        total_time += segment_time
+
+
+                        if route_mode == "Fastest Route":
+
+                            st.write(
+                                f"**{current} → {next_location}** "
+                                f"— {segment_distance:.0f} m "
+                                f"({segment_time:.2f} min)"
+                            )
+
+                        else:
+
+                            st.write(
+                                f"**{current} → {next_location}** "
+                                f"— {segment_distance:.0f} m"
+                            )
 
                         break
 
 
             # -----------------------------
-            # Total Distance
+            # Result Summary
             # -----------------------------
             st.divider()
 
-            st.metric(
-                "📏 Total Distance",
-                f"{distance} metres"
-            )
+
+            if route_mode == "Fastest Route":
+
+                st.metric(
+                    "⏱️ Estimated Travel Time",
+                    f"{total_time:.2f} minutes"
+                )
+
+                st.write(
+                    f"Total route distance: "
+                    f"**{total_distance:.0f} metres**"
+                )
+
+
+            else:
+
+                st.metric(
+                    "📏 Total Distance",
+                    f"{total_distance:.0f} metres"
+                )

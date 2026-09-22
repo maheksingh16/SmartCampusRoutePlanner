@@ -2,18 +2,19 @@ import heapq
 import pandas as pd
 
 
-def build_graph(data):
+def build_graph(data, mode="distance"):
     """
-    Build a graph from either:
-    - a CSV file path
-    - a pandas DataFrame
+    Build the campus graph.
+
+    Modes:
+    distance   = shortest physical distance
+    fastest    = shortest travel time
+    accessible = shortest distance using accessible roads only
     """
 
-    # If DataFrame is provided
+    # Accept either a DataFrame or a CSV file path
     if isinstance(data, pd.DataFrame):
         df = data.copy()
-
-    # If CSV file path is provided
     else:
         df = pd.read_csv(data)
 
@@ -21,30 +22,61 @@ def build_graph(data):
 
     for _, row in df.iterrows():
 
-        source = row["source"]
-        destination = row["destination"]
+        source = str(row["source"])
+        destination = str(row["destination"])
+
         distance = float(row["distance"])
         status = str(row["status"]).upper()
 
-        # Add locations to graph
+        speed = float(row["speed_kmh"])
+        accessible = str(row["accessible"]).upper()
+
+        # Make sure both locations exist
         graph.setdefault(source, [])
         graph.setdefault(destination, [])
 
-        # Only OPEN roads are usable
-        if status == "OPEN":
+        # Blocked roads cannot be used
+        if status != "OPEN":
+            continue
 
-            graph[source].append(
-                (destination, distance)
-            )
+        # Accessible mode only uses accessible roads
+        if mode == "accessible" and accessible != "YES":
+            continue
 
-            graph[destination].append(
-                (source, distance)
-            )
+        # Calculate the weight used by Dijkstra
+        if mode == "fastest":
+
+            # metres -> kilometres
+            distance_km = distance / 1000
+
+            # travel time in hours
+            travel_time_hours = distance_km / speed
+
+            # convert hours -> minutes
+            weight = travel_time_hours * 60
+
+        else:
+
+            # distance and accessible modes
+            weight = distance
+
+        # Add both directions because campus roads
+        # are currently treated as bidirectional
+        graph[source].append(
+            (destination, weight)
+        )
+
+        graph[destination].append(
+            (source, weight)
+        )
 
     return graph
 
 
 def dijkstra(graph, start, end):
+    """
+    Find the lowest-weight path from start to end.
+    """
 
     distances = {
         node: float("inf")
@@ -79,7 +111,9 @@ def dijkstra(graph, start, end):
         # Explore neighbours
         for neighbor, weight in graph[current_node]:
 
-            new_distance = current_distance + weight
+            new_distance = (
+                    current_distance + weight
+            )
 
             if new_distance < distances[neighbor]:
 
@@ -92,11 +126,11 @@ def dijkstra(graph, start, end):
                     (new_distance, neighbor)
                 )
 
-    # No route exists
+    # No path exists
     if distances[end] == float("inf"):
         return [], float("inf")
 
-    # Reconstruct shortest path
+    # Reconstruct path
     path = []
 
     current = end

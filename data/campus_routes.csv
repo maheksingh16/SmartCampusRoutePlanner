@@ -1,11 +1,11 @@
-source,destination,distance,status
-Main Gate,Admin Block,200,OPEN
-Main Gate,Library,300,OPEN
-Admin Block,Library,100,OPEN
-Admin Block,CSE Department,250,BLOCKED
-Library,CSE Department,150,OPEN
-Library,Canteen,200,OPEN
-CSE Department,Computer Lab,100,OPEN
-CSE Department,Auditorium,300,OPEN
-Canteen,Auditorium,150,OPEN
-Computer Lab,Auditorium,200,OPEN
+source,destination,distance,status,speed_kmh,accessible
+Main Gate,Admin Block,200,OPEN,4,YES
+Main Gate,Library,300,OPEN,3,YES
+Admin Block,Library,100,BLOCKED,3,NO
+Admin Block,CSE Department,250,OPEN,4,YES
+Library,CSE Department,150,OPEN,3,YES
+Library,Canteen,200,OPEN,3,YES
+CSE Department,Computer Lab,100,OPEN,4,YES
+CSE Department,Auditorium,300,OPEN,4,YES
+Canteen,Auditorium,150,OPEN,3,YES
+Computer Lab,Auditorium,200,OPEN,4,YES
