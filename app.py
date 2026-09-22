@@ -15,6 +15,13 @@ st.set_page_config(
 
 
 # -----------------------------
+# Route History
+# -----------------------------
+if "route_history" not in st.session_state:
+    st.session_state.route_history = []
+
+
+# -----------------------------
 # Load campus data
 # -----------------------------
 DATA_FILE = "data/campus_routes.csv"
@@ -232,6 +239,7 @@ if st.button("🔍 Find Route"):
             mode=mode
         )
 
+
         # -----------------------------
         # Find current route
         # -----------------------------
@@ -344,6 +352,39 @@ if st.button("🔍 Find Route"):
                         )
 
                         break
+
+
+            # -----------------------------
+            # Save route to history
+            # -----------------------------
+            route_record = {
+                "start": start,
+                "destination": destination,
+                "mode": route_mode,
+                "path": path.copy(),
+                "distance": total_distance,
+                "time": total_time
+            }
+
+
+            # Avoid adding the exact same route
+            # repeatedly
+            if (
+                    not st.session_state.route_history
+                    or
+                    st.session_state.route_history[0] != route_record
+            ):
+
+                st.session_state.route_history.insert(
+                    0,
+                    route_record
+                )
+
+
+            # Keep only the latest 5 routes
+            st.session_state.route_history = (
+                st.session_state.route_history[:5]
+            )
 
 
             # -----------------------------
@@ -726,3 +767,61 @@ graph Campus {
                     "📏 Total Distance",
                     f"{total_distance:.0f} metres"
                 )
+
+
+# -----------------------------
+# Recent Route History
+# -----------------------------
+st.divider()
+
+st.subheader("🕘 Recent Routes")
+
+
+if not st.session_state.route_history:
+
+    st.write(
+        "No routes searched yet."
+    )
+
+else:
+
+    for index, record in enumerate(
+            st.session_state.route_history
+    ):
+
+        st.write(
+            f"📍 **{record['start']} → "
+            f"{record['destination']}**"
+        )
+
+        st.write(
+            f"🧭 **{record['mode']}**"
+        )
+
+        st.write(
+            "Route: "
+            + " → ".join(record["path"])
+        )
+
+        st.write(
+            f"📏 {record['distance']:.0f} m "
+            f"| ⏱️ {record['time']:.2f} min"
+        )
+
+        if index < len(
+                st.session_state.route_history
+        ) - 1:
+
+            st.divider()
+
+
+# -----------------------------
+# Clear Route History
+# -----------------------------
+if st.session_state.route_history:
+
+    if st.button("🗑️ Clear Route History"):
+
+        st.session_state.route_history = []
+
+        st.rerun()
